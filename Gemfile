@@ -8,6 +8,10 @@ gem "tzinfo-data", platforms: %i[windows jruby]
 
 gem "faraday", "~> 2.13"
 gem "jbuilder", "~> 2.14"
+gem "json", "~> 2.16"
+gem "ostruct"
+gem "rswag-api", "~> 2.17"
+gem "rswag-ui", "~> 2.17"
 gem "redis", "~> 5.4"
 gem "sidekiq", "~> 8.0"
 
@@ -16,6 +20,7 @@ group :development, :test do
   gem "bundler-audit", require: false
   gem "debug", platforms: %i[mri windows], require: "debug/prelude"
   gem "rspec-rails", "~> 8.0"
+  gem "rswag-specs", "~> 2.17"
   gem "rubocop-rails-omakase", require: false
 end
 
