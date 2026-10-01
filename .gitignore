@@ -1,0 +1,14 @@
+/.bundle
+
+/.env*
+
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+
+/config/*.key
