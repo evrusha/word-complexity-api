@@ -6,10 +6,17 @@ gem "puma", ">= 5.0"
 gem "bootsnap", require: false
 gem "tzinfo-data", platforms: %i[windows jruby]
 
+gem "faraday", "~> 2.13"
+gem "redis", "~> 5.4"
+
 group :development, :test do
   gem "brakeman", require: false
   gem "bundler-audit", require: false
   gem "debug", platforms: %i[mri windows], require: "debug/prelude"
   gem "rspec-rails", "~> 8.0"
   gem "rubocop-rails-omakase", require: false
+end
+
+group :test do
+  gem "webmock", "~> 3.25"
 end
