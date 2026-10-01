@@ -8,7 +8,7 @@ gem "tzinfo-data", platforms: %i[windows jruby]
 
 gem "faraday", "~> 2.13"
 gem "jbuilder", "~> 2.14"
-gem "json", "~> 2.16"
+gem "json", "~> 3.0"
 gem "ostruct"
 gem "rswag-api", "~> 2.17"
 gem "rswag-ui", "~> 2.17"
