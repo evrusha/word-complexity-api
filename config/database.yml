@@ -1,0 +1,18 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= [ ENV.fetch("RAILS_MAX_THREADS", 3), ENV.fetch("SIDEKIQ_CONCURRENCY", 10) ].map(&:to_i).max %>
+
+development:
+  <<: *default
+  database: word_complexity_api_development
+
+test:
+  <<: *default
+  database: word_complexity_api_test
+
+production:
+  <<: *default
+  database: word_complexity_api_production
+  username: word_complexity_api
+  password: <%= ENV["WORD_COMPLEXITY_API_DATABASE_PASSWORD"] %>

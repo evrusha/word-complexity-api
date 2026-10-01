@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+gem list foreman --installed --silent || gem install foreman
+exec foreman start --procfile Procfile.dev "$@"

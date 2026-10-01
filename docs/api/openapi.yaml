@@ -1,0 +1,223 @@
+---
+openapi: 3.0.3
+info:
+  title: Word Complexity Score API
+  version: 1.0.0
+  description: |
+    Scores words by `(synonyms + antonyms) / definitions`, using the [Free Dictionary API](https://dictionaryapi.dev).
+
+    Scoring is asynchronous: submit a list of words, then poll the job until its status is `completed`.
+servers:
+- url: http://localhost:3000
+  description: Local development
+tags:
+- name: Complexity score
+  description: Submit words and fetch their scores
+components:
+  schemas:
+    WordList:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        type: string
+        maxLength: 50
+        description: ASCII letters, optionally joined by hyphens, apostrophes or single
+          spaces. Trimmed, lowercased and deduplicated.
+      example:
+      - happy
+      - joyful
+      - sad
+      - angry
+    JobAccepted:
+      type: object
+      required:
+      - job_id
+      properties:
+        job_id:
+          "$ref": "#/components/schemas/JobId"
+    JobId:
+      type: string
+      format: uuid
+      example: 72f2ceea-99ef-4dd4-884c-62b8084b32aa
+    Job:
+      type: object
+      required:
+      - job_id
+      - status
+      properties:
+        job_id:
+          "$ref": "#/components/schemas/JobId"
+        status:
+          type: string
+          enum:
+          - pending
+          - in_progress
+          - completed
+        result:
+          type: object
+          description: Score per word, in submission order. `null` when the word could
+            not be scored. Present once the job is completed.
+          additionalProperties:
+            type: number
+            nullable: true
+        errors:
+          type: object
+          description: Reason per word that could not be scored. Omitted when every
+            word was scored.
+          additionalProperties:
+            type: string
+    Error:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+paths:
+  "/complexity-score":
+    post:
+      summary: Submit words for scoring
+      tags:
+      - Complexity score
+      operationId: submitWords
+      description: Creates a scoring job and returns immediately. Each word is scored
+        in the background; poll the job for the result.
+      parameters: []
+      responses:
+        '202':
+          description: Job accepted
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: URL of the created job
+          content:
+            application/json:
+              examples:
+                accepted:
+                  value:
+                    job_id: 72f2ceea-99ef-4dd4-884c-62b8084b32aa
+              schema:
+                "$ref": "#/components/schemas/JobAccepted"
+        '400':
+          description: Body is not valid JSON
+          content:
+            application/json:
+              examples:
+                malformed:
+                  value:
+                    error:
+                      code: bad_request
+                      message: request body must be valid JSON
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '422':
+          description: Invalid word list
+          content:
+            application/json:
+              examples:
+                empty:
+                  value:
+                    error:
+                      code: unprocessable_content
+                      message: word list must not be empty
+                invalid_words:
+                  value:
+                    error:
+                      code: unprocessable_content
+                      message: 'invalid words: "h4ppy"'
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '429':
+          description: Too many submissions from this client
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  value:
+                    error:
+                      code: too_many_requests
+                      message: too many requests, retry later
+              schema:
+                "$ref": "#/components/schemas/Error"
+        '503':
+          description: Job queue is unavailable; nothing was stored
+          content:
+            application/json:
+              examples:
+                queue_unavailable:
+                  value:
+                    error:
+                      code: service_unavailable
+                      message: job queue is unavailable, retry later
+              schema:
+                "$ref": "#/components/schemas/Error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/WordList"
+        required: true
+  "/complexity-score/{job_id}":
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        "$ref": "#/components/schemas/JobId"
+    get:
+      summary: Fetch job status and result
+      tags:
+      - Complexity score
+      operationId: getJob
+      description: Returns `pending` until a worker picks up the first word, `in_progress`
+        while words are being scored, and `completed` with the result once every word
+        is settled.
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              examples:
+                pending:
+                  value:
+                    job_id: 72f2ceea-99ef-4dd4-884c-62b8084b32aa
+                    status: pending
+                in_progress:
+                  value:
+                    job_id: 72f2ceea-99ef-4dd4-884c-62b8084b32aa
+                    status: in_progress
+                completed:
+                  value:
+                    job_id: 72f2ceea-99ef-4dd4-884c-62b8084b32aa
+                    status: completed
+                    result:
+                      happy: 3.0
+                      water: 0.74
+                      qwzxv:
+                    errors:
+                      qwzxv: word not found
+              schema:
+                "$ref": "#/components/schemas/Job"
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              examples:
+                not_found:
+                  value:
+                    error:
+                      code: not_found
+                      message: resource not found
+              schema:
+                "$ref": "#/components/schemas/Error"

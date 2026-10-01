@@ -1,0 +1,5 @@
+shared:
+  base_url: <%= ENV.fetch("DICTIONARY_API_URL", "https://api.dictionaryapi.dev/api/v2/entries/en/") %>
+  open_timeout: 5
+  timeout: 30
+  cache_ttl: <%= 7.days.to_i %>
