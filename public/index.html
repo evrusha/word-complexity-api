@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Complexity Score</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #fff;
+      --text: #1d2330;
+      --muted: #6b7280;
+      --border: #e3e6eb;
+      --accent: #3b5bdb;
+      --ok: #2b8a3e;
+      --warn: #e67700;
+      --error: #c92a2a;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14171c;
+        --surface: #1c2027;
+        --text: #e6e8eb;
+        --muted: #9aa1ac;
+        --border: #2c313a;
+        --accent: #748ffc;
+        --ok: #69db7c;
+        --warn: #ffa94d;
+        --error: #ff8787;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 16px;
+    }
+
+    h1 { margin: 0 0 4px; font-size: 26px; }
+
+    p { margin: 0; color: var(--muted); }
+
+    a { color: var(--accent); }
+
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+
+    .card {
+      margin-top: 24px;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    form { display: flex; gap: 8px; }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      font: inherit;
+      color: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+    button {
+      padding: 10px 18px;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: .6; cursor: default; }
+
+    .hint { margin-top: 8px; font-size: 13px; }
+
+    .error { margin-top: 12px; color: var(--error); }
+
+    .job {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status {
+      padding: 2px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+    }
+
+    .status.pending { color: var(--muted); }
+    .status.in_progress { color: var(--warn); }
+    .status.completed { color: var(--ok); }
+
+    table { width: 100%; margin-top: 16px; border-collapse: collapse; }
+
+    th, td { padding: 8px 0; text-align: left; border-top: 1px solid var(--border); }
+
+    th { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+    td.score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    td.missing { color: var(--error); font-weight: 400; }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Word Complexity Score</h1>
+    <p>Score = (synonyms + antonyms) / definitions, based on the Free Dictionary API.</p>
+
+    <section class="card">
+      <form id="form">
+        <input id="words" placeholder="happy, joyful, sad, angry" value="happy, joyful, sad, angry" autocomplete="off" aria-label="Words">
+        <button id="submit">Score</button>
+      </form>
+      <p class="hint">Comma separated, up to 100 words.</p>
+      <p class="error" id="error" hidden></p>
+    </section>
+
+    <div id="jobs"></div>
+
+    <template id="job-template">
+      <section class="card">
+        <div class="job">
+          <code class="job-id"></code>
+          <span class="status"></span>
+        </div>
+        <table>
+          <thead><tr><th>Word</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="error" hidden></p>
+      </section>
+    </template>
+
+    <section class="card">
+      <p>Using the API directly · <a href="/api-docs">API reference</a></p>
+      <pre><code>curl -X POST localhost:3000/complexity-score \
+  -H "Content-Type: application/json" \
+  -d '["happy", "joyful", "sad", "angry"]'
+
+curl localhost:3000/complexity-score/:job_id</code></pre>
+    </section>
+  </main>
+
+  <script>
+    const POLL_INTERVAL = 2000
+    const MAX_JOBS = 10
+    const $ = (id) => document.getElementById(id)
+
+    const request = async (path, options) => {
+      const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error?.message ?? `Request failed with ${response.status}`)
+      return body
+    }
+
+    const showError = (element, message) => {
+      element.textContent = message
+      element.hidden = !message
+    }
+
+    const cell = (text, className) => Object.assign(document.createElement("td"), { textContent: text, className })
+
+    const render = (card, words, { status, result = {}, errors = {} }) => {
+      const badge = card.querySelector(".status")
+      badge.textContent = status.replace("_", " ")
+      badge.className = `status ${status}`
+
+      const rows = status === "completed"
+        ? Object.entries(result).map(([word, score]) => [word, score ?? errors[word], score === null ? "score missing" : "score"])
+        : words.map((word) => [word, "…", "score"])
+
+      card.querySelector("tbody").replaceChildren(...rows.map(([word, value, className]) => {
+        const row = document.createElement("tr")
+        row.append(cell(word), cell(value, className))
+        return row
+      }))
+    }
+
+    const watch = async (card, jobId, words) => {
+      if (!card.isConnected) return
+
+      try {
+        const job = await request(`/complexity-score/${jobId}`)
+        render(card, words, job)
+        if (job.status !== "completed") setTimeout(() => watch(card, jobId, words), POLL_INTERVAL)
+      } catch (error) {
+        showError(card.querySelector(".error"), error.message)
+      }
+    }
+
+    const addJob = (jobId, words) => {
+      const card = $("job-template").content.firstElementChild.cloneNode(true)
+      card.querySelector(".job-id").textContent = jobId
+
+      $("jobs").prepend(card)
+      while ($("jobs").children.length > MAX_JOBS) $("jobs").lastElementChild.remove()
+
+      render(card, words, { status: "pending" })
+      watch(card, jobId, words)
+    }
+
+    $("form").addEventListener("submit", async (event) => {
+      event.preventDefault()
+      showError($("error"), "")
+
+      const words = $("words").value.split(",").map((word) => word.trim()).filter(Boolean)
+      $("submit").disabled = true
+
+      try {
+        const { job_id } = await request("/complexity-score", { method: "POST", body: JSON.stringify(words) })
+        addJob(job_id, words)
+      } catch (error) {
+        showError($("error"), error.message)
+      } finally {
+        $("submit").disabled = false
+      }
+    })
+  </script>
+</body>
+</html>
