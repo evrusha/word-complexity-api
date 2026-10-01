@@ -12,7 +12,7 @@ gem "json", "~> 2.16"
 gem "ostruct"
 gem "rswag-api", "~> 2.17"
 gem "rswag-ui", "~> 2.17"
-gem "redis", "~> 5.4"
+gem "redis", "~> 6.0"
 gem "sidekiq", "~> 8.0"
 
 group :development, :test do
