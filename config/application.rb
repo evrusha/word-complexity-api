@@ -15,6 +15,7 @@ module WordComplexityApi
     config.autoload_lib(ignore: %w[assets tasks])
     config.api_only = true
 
+    config.active_job.queue_adapter = :sidekiq
     config.cache_store = :redis_cache_store, { url: ENV["REDIS_URL"], namespace: "cache" }
     config.dictionary = config_for(:dictionary)
   end

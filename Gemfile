@@ -8,6 +8,7 @@ gem "tzinfo-data", platforms: %i[windows jruby]
 
 gem "faraday", "~> 2.13"
 gem "redis", "~> 5.4"
+gem "sidekiq", "~> 8.0"
 
 group :development, :test do
   gem "brakeman", require: false
