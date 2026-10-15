@@ -25,5 +25,5 @@ group :development, :test do
 end
 
 group :test do
-  gem "webmock", "~> 3.25"
+  gem "webmock", "~> 3.29"
 end
